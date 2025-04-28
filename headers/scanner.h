@@ -29,7 +29,9 @@ enum Token {
 	T_CMP,			// Сводная лексема для операторов отношения
 	T_LPAREN,		// Открывающая скобка
 	T_RPAREN,		// Закрывающая скобка
-	T_SEMICOLON		// ";"
+	T_SEMICOLON,		// ";"
+    T_BREAK,     //Ключевое слово break
+    T_CONTINUE //Ключевое слово continue
 };
 
 // Функция tokenToString возвращает описание лексемы.
@@ -77,7 +79,11 @@ public:
 		keywords_["write"] = T_WRITE;
 		keywords_["read"] = T_READ;
 
-		nextChar();
+        keywords_["break"] = T_BREAK;
+        keywords_["continue"] = T_CONTINUE;
+
+
+        nextChar();
 	}
 
 	// Деструктор
