@@ -1,0 +1,40 @@
+BEGIN
+  /* Test with simpler boolean expressions */
+
+  /* Boolean assignment with numeric representation */
+  t := 1;
+  f := 0;
+
+  /* Simple outputs */
+  write(t);
+  write(f);
+
+  /* Comparisons as boolean expressions */
+  x := 5;
+  y := 10;
+
+  /* Basic if statement with comparison */
+  if x < y then
+    write(1)
+  else
+    write(0)
+  fi;
+
+  /* Negated comparison */
+  if !(x > y) then
+    write(1)
+  else
+    write(0)
+  fi;
+
+  /* Compound comparison with existing operators */
+  if x < 10 then
+    if y > 5 then
+      write(1)
+    else
+      write(0)
+    fi
+  else
+    write(0)
+  fi
+end

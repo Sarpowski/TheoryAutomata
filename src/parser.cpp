@@ -46,14 +46,24 @@ void Parser::statement()
         int varAddress = findOrAddVariable(scanner_->getStringValue());
         next();
         mustBe(T_ASSIGN);
-        expression();
+
+        // Теперь проверяем, начинается ли выражение с логических операторов или констант
+        if(see(T_TRUE) || see(T_FALSE) || see(T_NOT) || see(T_LPAREN)) {
+            // Пробуем разобрать как логическое выражение
+            booleanExpression();
+        } else {
+            // Иначе разбираем как арифметическое выражение
+            expression();
+        }
+
         codegen_->emit(STORE, varAddress);
     }
         // Если встретили IF, то затем должно следовать условие. На вершине стека лежит 1 или 0 в зависимости от выполнения условия.
         // Затем зарезервируем место для условного перехода JUMP_NO к блоку ELSE (переход в случае ложного условия). Адрес перехода
         // станет известным только после того, как будет сгенерирован код для блока THEN.
     else if(match(T_IF)) {
-        relation();
+        // В условии может быть как логическое, так и сравнительное выражение
+        booleanExpression();
 
         int jumpNoAddress = codegen_->reserve();
 
@@ -79,33 +89,52 @@ void Parser::statement()
     }
 
     else if(match(T_WHILE)) {
-        //запоминаем адрес начала проверки условия.
+        // Remember address of condition check
         int conditionAddress = codegen_->getCurrentAddress();
         relation();
-        //резервируем место под инструкцию условного перехода для выхода из цикла.
+
+        // Reserve space for conditional exit jump
         int jumpNoAddress = codegen_->reserve();
 
-        // Сохраняем контекст цикла в стек
+        // Create a new loop context
         LoopContext context;
         context.conditionAddress = conditionAddress;
-        context.exitAddress = jumpNoAddress;
+        context.exitAddress = jumpNoAddress; // This is just a placeholder for now
         loopStack_.push(context);
 
         mustBe(T_DO);
         statementList();
         mustBe(T_OD);
 
-        //переходим по адресу проверки условия
+        // Jump back to condition
         codegen_->emit(JUMP, conditionAddress);
-        //заполняем зарезервированный адрес инструкцией условного перехода на следующий за циклом оператор.
-        codegen_->emitAt(jumpNoAddress, JUMP_NO, codegen_->getCurrentAddress());
 
-        // Удаляем контекст цикла из стека
+        // Get the actual exit address now that we know it
+        int exitAddress = codegen_->getCurrentAddress();
+
+        // Fill in the loop exit jump
+        codegen_->emitAt(jumpNoAddress, JUMP_NO, exitAddress);
+
+        // Fill in all break jumps with the actual exit address
+        for(int breakAddr : loopStack_.top().breakAddresses) {
+            codegen_->emitAt(breakAddr, JUMP, exitAddress);
+        }
+
+        // Remove the loop context
         loopStack_.pop();
     }
     else if(match(T_WRITE)) {
         mustBe(T_LPAREN);
-        expression();
+
+        // В WRITE можно передавать как арифметические, так и логические выражения
+        if(see(T_TRUE) || see(T_FALSE) || see(T_NOT) || see(T_LPAREN)) {
+            // Пробуем разобрать как логическое выражение
+            booleanExpression();
+        } else {
+            // Иначе разбираем как арифметическое выражение
+            expression();
+        }
+
         mustBe(T_RPAREN);
         codegen_->emit(PRINT);
     }
@@ -113,26 +142,15 @@ void Parser::statement()
         codegen_->emit(INPUT);
     }
     else if(match(T_BREAK)) {
-        // Проверяем, находимся ли внутри цикла
+        // Check if we're inside a loop
         if(loopStack_.empty()) {
             reportError("'break' statement outside of loop");
         } else {
-            // Генерируем безусловный переход на адрес выхода из цикла
-            // Так как мы пока не знаем этот адрес, резервируем место для инструкции
+            // Reserve a spot for the jump instruction
             int breakJumpAddress = codegen_->reserve();
 
-            // Когда мы завершим обработку цикла, мы заполним это место
-            // инструкцией перехода на адрес следующий за циклом
-            // Это будет доделано в конце обработки while
-
-            // Но пока мы не можем это сделать, так как цикл еще не обработан полностью
-            // Поэтому сохраняем адрес для последующего заполнения
-            codegen_->emitAt(breakJumpAddress, JUMP, codegen_->getCurrentAddress() + 1);
-
-            // В реальной реализации нужно бы сохранить этот адрес, чтобы потом заполнить его
-            // правильным значением, когда мы узнаем адрес конца цикла
-            // Но для простоты просто генерируем JUMP на следующую инструкцию
-            // В полной реализации здесь нужно вести список адресов для break
+            // Add this to the list of addresses to update when we know the actual exit address
+            loopStack_.top().breakAddresses.push_back(breakJumpAddress);
         }
     }
     else if(match(T_CONTINUE)) {
@@ -152,14 +170,94 @@ void Parser::statement()
     }
 }
 
+// Функция для разбора логических выражений
+void Parser::booleanExpression() {
+    booleanTerm();
+
+    // Логическое ИЛИ с коротким замыканием (||)
+    while(see(T_OR)) {
+        next(); // Удаляем ||
+
+        // Если первый операнд истина, второй не вычисляется
+        int shortCircuitAddress = codegen_->reserve();
+
+        booleanTerm();
+
+        // Операция логического ИЛИ
+        codegen_->emit(BITOR);
+
+        // Заполняем адрес для короткого замыкания
+        codegen_->emitAt(shortCircuitAddress, SHORT_OR, codegen_->getCurrentAddress());
+    }
+
+    // Побитовое ИЛИ (|)
+    while(see(T_BITOR)) {
+        next(); // Удаляем |
+        booleanTerm();
+        codegen_->emit(BITOR);
+    }
+}
+
+void Parser::booleanTerm() {
+    booleanFactor();
+
+    // Логическое И с коротким замыканием (&&)
+    while(see(T_AND)) {
+        next(); // Удаляем &&
+
+        // Если первый операнд ложь, второй не вычисляется
+        int shortCircuitAddress = codegen_->reserve();
+
+        booleanFactor();
+
+        // Операция логического И
+        codegen_->emit(BITAND);
+
+        // Заполняем адрес для короткого замыкания
+        codegen_->emitAt(shortCircuitAddress, SHORT_AND, codegen_->getCurrentAddress());
+    }
+
+    // Побитовое И (&)
+    while(see(T_BITAND)) {
+        next(); // Удаляем &
+        booleanFactor();
+        codegen_->emit(BITAND);
+    }
+}
+
+void Parser::booleanFactor() {
+    if(match(T_NOT)) {
+        // Отрицание
+        booleanFactor();
+        codegen_->emit(NOT);
+    }
+    else if(match(T_TRUE)) {
+        // Константа true
+        codegen_->emit(PUSH_TRUE);
+    }
+    else if(match(T_FALSE)) {
+        // Константа false
+        codegen_->emit(PUSH_FALSE);
+    }
+    else if(match(T_LPAREN)) {
+        // Выражение в скобках
+        booleanExpression();
+        mustBe(T_RPAREN);
+    }
+    else {
+        // Может быть отношение (сравнение)
+        relation();
+    }
+}
+
 void Parser::expression()
 {
 
     /*
         Арифметическое выражение описывается следующими правилами: <expression> -> <term> | <term> + <term> | <term> - <term>
         При разборе сначала смотрим первый терм, затем анализируем очередной символ. Если это '+' или '-',
-        удаляем его из потока и разбираем очередное слагаемое (вычитаемое). Повторяем проверку и разбор очередного
-        терма, пока не встретим за термом символ, отличный от '+' и '-'
+		удаляем его из потока и разбираем очередное слагаемое (вычитаемое). Повторяем проверку и разбор очередного
+		терма, пока не встретим за термом символ, отличный от '+' и '-'
     */
 
     term();
@@ -180,11 +278,11 @@ void Parser::expression()
 void Parser::term()
 {
     /*
-        Терм описывается следующими правилами: <expression> -> <factor> | <factor> + <factor> | <factor> - <factor>
+		Терм описывается следующими правилами: <expression> -> <factor> | <factor> + <factor> | <factor> - <factor>
         При разборе сначала смотрим первый множитель, затем анализируем очередной символ. Если это '*' или '/',
-        удаляем его из потока и разбираем очередное слагаемое (вычитаемое). Повторяем проверку и разбор очередного
-        множителя, пока не встретим за ним символ, отличный от '*' и '/'
-   */
+		удаляем его из потока и разбираем очередное слагаемое (вычитаемое). Повторяем проверку и разбор очередного
+		множителя, пока не встретим за ним символ, отличный от '*' и '/'
+	*/
     factor();
     while(see(T_MULOP)) {
         Arithmetic op = scanner_->getArithmeticValue();
@@ -203,9 +301,9 @@ void Parser::term()
 void Parser::factor()
 {
     /*
-        Множитель описывается следующими правилами:
-        <factor> -> number | identifier | -<factor> | (<expression>) | READ
-    */
+		Множитель описывается следующими правилами:
+		<factor> -> number | identifier | -<factor> | (<expression>) | READ
+	*/
     if(see(T_NUMBER)) {
         int value = scanner_->getIntValue();
         next();

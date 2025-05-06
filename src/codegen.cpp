@@ -2,90 +2,118 @@
 
 void Command::print(int address, ostream& os)
 {
-	os << address << ":\t";
-	switch(instruction_) {
-		case NOP:
-			os << "NOP";
-			break;
-			
-		case STOP:
-			os << "STOP";
-			break;
-			
-		case LOAD:
-			os << "LOAD\t" << arg_;
-			break;
-			
-		case STORE:
-			os << "STORE\t" << arg_;
-			break;
-			
-		case BLOAD:
-			os << "BLOAD\t" << arg_;
-			break;
-			
-		case BSTORE:
-			os << "BSTORE\t" << arg_;
-			break;
-			
-		case PUSH:
-			os << "PUSH\t" << arg_;
-			break;
-			
-		case POP:
-			os << "POP";
-			break;
-			
-		case DUP:
-			os << "DUP";
-			break;
-			
-		case ADD:
-			os << "ADD";
-			break;
-			
-		case SUB:
-			os << "SUB";
-			break;
-			
-		case MULT:
-			os << "MULT";
-			break;
-			
-		case DIV:
-			os << "DIV";
-			break;
-			
-		case INVERT:
-			os << "INVERT";
-			break;
-	
-		case COMPARE:
-			os << "COMPARE\t" << arg_;
-			break;
-	
-		case JUMP:
-			os << "JUMP\t" << arg_;
-			break;
-	
-		case JUMP_YES:
-			os << "JUMP_YES\t" << arg_;
-			break;
-	
-		case JUMP_NO:
-			os << "JUMP_NO\t" << arg_;
-			break;
-	
-		case INPUT:
-			os << "INPUT";
-			break;
-	
-		case PRINT:
-			os << "PRINT";
-			break;
-	}
+    os << address << ":\t";
+    switch(instruction_) {
+        case NOP:
+            os << "NOP";
+            break;
 
-	os << endl;
+        case STOP:
+            os << "STOP";
+            break;
+
+        case LOAD:
+            os << "LOAD\t" << arg_;
+            break;
+
+        case STORE:
+            os << "STORE\t" << arg_;
+            break;
+
+        case BLOAD:
+            os << "BLOAD\t" << arg_;
+            break;
+
+        case BSTORE:
+            os << "BSTORE\t" << arg_;
+            break;
+
+        case PUSH:
+            os << "PUSH\t" << arg_;
+            break;
+
+        case POP:
+            os << "POP";
+            break;
+
+        case DUP:
+            os << "DUP";
+            break;
+
+        case ADD:
+            os << "ADD";
+            break;
+
+        case SUB:
+            os << "SUB";
+            break;
+
+        case MULT:
+            os << "MULT";
+            break;
+
+        case DIV:
+            os << "DIV";
+            break;
+
+        case INVERT:
+            os << "INVERT";
+            break;
+
+        case COMPARE:
+            os << "COMPARE\t" << arg_;
+            break;
+
+        case JUMP:
+            os << "JUMP\t" << arg_;
+            break;
+
+        case JUMP_YES:
+            os << "JUMP_YES\t" << arg_;
+            break;
+
+        case JUMP_NO:
+            os << "JUMP_NO\t" << arg_;
+            break;
+
+        case INPUT:
+            os << "INPUT";
+            break;
+
+        case PRINT:
+            os << "PRINT";
+            break;
+
+        case BITAND:
+            os << "BITAND";
+            break;
+
+        case BITOR:
+            os << "BITOR";
+            break;
+
+        case NOT:
+            os << "NOT";
+            break;
+
+        case PUSH_TRUE:
+            os << "PUSH_TRUE";
+            break;
+
+        case PUSH_FALSE:
+            os << "PUSH_FALSE";
+            break;
+
+        case SHORT_AND:
+            os << "SHORT_AND\t" << arg_;
+            break;
+
+        case SHORT_OR:
+            os << "SHORT_OR\t" << arg_;
+            break;
+    }
+
+    os << endl;
 }
 
 void CodeGen::emit(Instruction instruction)

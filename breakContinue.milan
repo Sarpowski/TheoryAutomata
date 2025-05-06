@@ -1,0 +1,13 @@
+begin
+  read;
+  while 0 < 10 do
+    if 5 = 5 then
+      break
+    fi;
+    write(1);
+    if 2 = 2 then
+      continue
+    fi;
+    write(2)
+  od
+end
