@@ -36,7 +36,7 @@ enum Token {
     T_TRUE,         // Ключевое слово "true"
     T_FALSE,        // Ключевое слово "false"
     T_BITAND,       // "&" (побитовое И)
-    T_BITOR,        // "|" (побитовое ИЛИ)
+    T_BITOR,        // "|" (    побитовое ИЛИ)
     T_AND,          // "&&" (логическое И с коротким замыканием)
     T_OR,           // "||" (логическое ИЛИ с коротким замыканием)
     T_NOT           // "!" (логическое отрицание)
@@ -80,6 +80,7 @@ public:
 	explicit Scanner(const string& fileName, istream& input)
 		: fileName_(fileName), lineNumber_(1), input_(input)
 	{
+
 		keywords_["begin"] = T_BEGIN;
 		keywords_["end"] = T_END;
 		keywords_["if"] = T_IF;
@@ -94,7 +95,9 @@ public:
 
         keywords_["break"] = T_BREAK;
         keywords_["continue"] = T_CONTINUE;
-
+        // ADDED true and false keywoard
+        keywords_["true"] = T_TRUE;
+        keywords_["false"] = T_FALSE;
 
         nextChar();
 	}

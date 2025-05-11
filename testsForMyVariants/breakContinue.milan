@@ -1,13 +1,21 @@
 begin
-  read;
-  while 0 < 10 do
-    if 5 = 5 then
+  sum := 0;
+
+  counter := 0;
+
+  while 0 < 100 do
+    counter := counter + 1;
+
+    sum := sum + counter;
+
+    write(counter);
+    write(sum);
+
+    if sum >= 10 then
+      write(sum);
       break
-    fi;
-    write(1);
-    if 2 = 2 then
-      continue
-    fi;
-    write(2)
-  od
+    fi
+  od;
+    write(0);
+  write(sum)
 end

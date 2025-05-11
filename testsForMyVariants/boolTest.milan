@@ -1,0 +1,17 @@
+begin
+  t := true;
+  f := false;
+
+  if t then
+    write(1)
+  else
+    write(0)
+  fi;
+
+  if f then
+    write(999)
+  fi;
+
+  logic := t & f;
+  write(logic)
+end

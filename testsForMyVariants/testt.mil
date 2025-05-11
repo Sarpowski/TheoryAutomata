@@ -1,0 +1,10 @@
+begin
+  read;
+  while 0 < 5 do
+    write(1);
+    write(2);
+    write(3);
+    write(4);
+    break
+  od
+end

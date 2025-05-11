@@ -1,0 +1,11 @@
+begin
+  read;
+  break;  # This should trigger our "break outside of loop" error
+
+  while 0 < 10 do
+    write(1);
+    if 5 = 5 then
+      break
+    fi
+  od
+end
