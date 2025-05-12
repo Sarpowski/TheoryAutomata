@@ -1,8 +1,6 @@
 begin
   sum := 0;
-
   counter := 0;
-
   while 0 < 100 do
     counter := counter + 1;
 

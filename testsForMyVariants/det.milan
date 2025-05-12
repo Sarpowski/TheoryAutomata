@@ -1,0 +1,10 @@
+begin
+  a := true;
+  b := false;
+
+  write(a);
+  write(b);
+
+  c := (!a && b);
+  write(c)
+end

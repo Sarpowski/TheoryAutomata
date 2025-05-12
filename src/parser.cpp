@@ -21,10 +21,7 @@ void Parser::program()
 
 void Parser::statementList()
 {
-    //	  Если список операторов пуст, очередной лексемой будет одна из возможных "закрывающих скобок": END, OD, ELSE, FI.
-    //	  В этом случае результатом разбора будет пустой блок (его список операторов равен null).
-    //	  Если очередная лексема не входит в этот список, то ее мы считаем началом оператора и вызываем метод statement.
-    //    Признаком последнего оператора является отсутствие после оператора точки с запятой.
+
     if(see(T_END) || see(T_OD) || see(T_ELSE) || see(T_FI)) {
         return;
     }
@@ -44,13 +41,13 @@ void Parser::statement()
         next();
         mustBe(T_ASSIGN);
 
-        // This is where you need to check for boolean expressions
+
         if(see(T_TRUE) || see(T_FALSE) || see(T_NOT) ||
            see(T_LPAREN) || see(T_IDENTIFIER)) {
-            // Try to parse as a boolean expression
+
             booleanExpression();
         } else {
-            // Parse as arithmetic expression
+
             expression();
         }
 
@@ -96,32 +93,31 @@ void Parser::statement()
         statementList();
         mustBe(T_OD);
 
-        // Jump back to condition
         codegen_->emit(JUMP, conditionAddress);
 
-        // Get the actual exit address now that we know it
+
         int exitAddress = codegen_->getCurrentAddress();
 
-        // Fill in the loop exit jump
+
         codegen_->emitAt(jumpNoAddress, JUMP_NO, exitAddress);
 
-        // Fill in all break jumps with the actual exit address
+
         for(int breakAddr : loopStack_.top().breakAddresses) {
             codegen_->emitAt(breakAddr, JUMP, exitAddress);
         }
 
-        // Remove the loop context
+
         loopStack_.pop();
     }
     else if(match(T_WRITE)) {
         mustBe(T_LPAREN);
 
-        // В WRITE можно передавать как арифметические, так и логические выражения
+
         if(see(T_TRUE) || see(T_FALSE) || see(T_NOT) || see(T_LPAREN)) {
-            // Пробуем разобрать как логическое выражение
+
             booleanExpression();
         } else {
-            // Иначе разбираем как арифметическое выражение
+
             expression();
         }
 
@@ -132,26 +128,23 @@ void Parser::statement()
         codegen_->emit(INPUT);
     }
     else if(match(T_BREAK)) {
-        // Check if we're inside a loop
+
         if(loopStack_.empty()) {
             reportError("'break' statement outside of loop");
         } else {
-            // Reserve a spot for the jump instruction
             int breakJumpAddress = codegen_->reserve();
-
-            // Add this to the list of addresses to update when we know the actual exit address
             loopStack_.top().breakAddresses.push_back(breakJumpAddress);
         }
     }
     else if(match(T_CONTINUE)) {
-        // Проверяем, находимся ли внутри цикла
+
         if(loopStack_.empty()) {
             reportError("'continue' statement outside of loop");
         } else {
-            // Берем адрес начала условия из текущего контекста цикла
+
             int conditionAddress = loopStack_.top().conditionAddress;
 
-            // Генерируем безусловный переход на адрес начала цикла (проверки условия)
+
             codegen_->emit(JUMP, conditionAddress);
         }
     }
@@ -160,7 +153,7 @@ void Parser::statement()
     }
 }
 
-// Функция для разбора логических выражений
+
 void Parser::booleanExpression() {
     booleanTerm();
 
@@ -169,31 +162,52 @@ void Parser::booleanExpression() {
         next();
 
         if(isShortCircuit) {
-            // For ||, check if first operand is non-zero
             int checkNonZeroAddr = codegen_->reserve();
             int shortCircuitAddr = codegen_->reserve();
 
-            codegen_->emitAt(checkNonZeroAddr, DUP);  // Duplicate top value
-            codegen_->emitAt(shortCircuitAddr, JUMP_YES, shortCircuitAddr + 3);  // If non-zero, skip evaluation of second operand
+            codegen_->emitAt(checkNonZeroAddr, DUP);
+            codegen_->emitAt(shortCircuitAddr, JUMP_YES, shortCircuitAddr + 3);
 
-            // If we get here, first operand was 0
-            codegen_->emit(POP);  // Remove the 0
-            booleanTerm();  // Evaluate second operand
+            codegen_->emit(POP);
+            booleanTerm();
         }
         else {
-            // For |, evaluate both operands
+
             booleanTerm();
 
-            // Pop two values, OR them, push result
-            // For 0/1 values, we can use addition and then compare with 0
+
             codegen_->emit(ADD);
 
-            // Check if result is > 0
+
             codegen_->emit(PUSH, 0);
-            codegen_->emit(COMPARE, 3);  // 3 is GT (greater than)
+            codegen_->emit(COMPARE, 3);
         }
     }
 }
+/*
+void Parser::booleanTerm() {
+    booleanFactor();
+
+    while(see(T_AND) || see(T_BITAND)) {
+        bool isShortCircuit = (scanner_->token() == T_AND);
+        next();
+
+        if(isShortCircuit) {
+
+            int shortCircuitAddr = codegen_->reserve();
+            codegen_->emitAt(shortCircuitAddr, JUMP_NO, shortCircuitAddr + 3);
+
+            booleanFactor();
+            codegen_->emit(MULT);
+        }
+        else {
+
+            booleanFactor();
+
+            codegen_->emit(MULT);
+        }
+    }
+}*/
 
 void Parser::booleanTerm() {
     booleanFactor();
@@ -203,50 +217,56 @@ void Parser::booleanTerm() {
         next();
 
         if(isShortCircuit) {
-            // For &&, check if first operand is 0
-            int shortCircuitAddr = codegen_->reserve();
-            codegen_->emitAt(shortCircuitAddr, JUMP_NO, shortCircuitAddr + 3);  // If 0, skip evaluation of second operand
+            codegen_->emit(DUP);
+
+            int jumpEndAddr = codegen_->reserve();
+
+
+            codegen_->emit(POP);
 
             booleanFactor();
 
-            // Now perform AND using existing instructions
-            // Pop two values, AND them, push result
-            codegen_->emit(MULT);  // For 0/1 values, multiplication is equivalent to AND
+            codegen_->emit(MULT);
+
+            int endAddr = codegen_->getCurrentAddress();
+
+            codegen_->emitAt(jumpEndAddr, JUMP_NO, endAddr);
         }
         else {
-            // For &, evaluate both operands
             booleanFactor();
 
-            // Pop two values, AND them, push result
-            codegen_->emit(MULT);  // For 0/1 values, multiplication is equivalent to AND
+            codegen_->emit(MULT);
         }
     }
 }
 void Parser::booleanFactor() {
     if(match(T_NOT)) {
-        booleanFactor();
-        // Instead of emit(NOT), use existing instructions:
-        // Check if value is 0, if so push 1, else push 0
+        /*booleanFactor();
+
+
         int notTrueAddr = codegen_->reserve();
         int jumpAddr = codegen_->reserve();
 
-        codegen_->emitAt(notTrueAddr, JUMP_NO, notTrueAddr + 2);  // Skip next instruction if value is 0
-        codegen_->emitAt(notTrueAddr + 1, PUSH, 0);  // Push 0 (NOT true = false)
-        codegen_->emitAt(jumpAddr, JUMP, jumpAddr + 2);  // Skip next instruction
-        codegen_->emit(PUSH, 1);  // Push 1 (NOT false = true)
+        codegen_->emitAt(notTrueAddr, JUMP_NO, notTrueAddr + 2);
+        codegen_->emitAt(notTrueAddr + 1, PUSH, 0);
+        codegen_->emitAt(jumpAddr, JUMP, jumpAddr + 2);
+        codegen_->emit(PUSH, 1);*/
+        booleanFactor();
+        // Implement NOT using equality comparison: NOT x = (x == 0)
+        codegen_->emit(PUSH, 0);
+        codegen_->emit(COMPARE, C_EQ);
     }
     else if(match(T_TRUE)) {
-        codegen_->emit(PUSH, 1);  // Use PUSH instead of PUSH_TRUE
+        codegen_->emit(PUSH, 1);
     }
     else if(match(T_FALSE)) {
-        codegen_->emit(PUSH, 0);  // Use PUSH instead of PUSH_FALSE
+        codegen_->emit(PUSH, 0);
     }
     else if(match(T_LPAREN)) {
         booleanExpression();
         mustBe(T_RPAREN);
     }
     else {
-        // This is a key change - try to parse a relation or an identifier
         if(see(T_IDENTIFIER)) {
             int varAddress = findOrAddVariable(scanner_->getStringValue());
             next();
@@ -258,7 +278,6 @@ void Parser::booleanFactor() {
             codegen_->emit(PUSH, value);
         }
         else {
-            // Try to parse a relation
             expression();
             if(see(T_CMP)) {
                 Cmp cmp = scanner_->getCmpValue();
@@ -267,7 +286,6 @@ void Parser::booleanFactor() {
                 codegen_->emit(COMPARE, cmp);
             }
             else {
-                // Not a comparison, not an identifier, not a literal - error
                 reportError("boolean expression expected");
             }
         }
@@ -332,29 +350,24 @@ void Parser::factor()
         int value = scanner_->getIntValue();
         next();
         codegen_->emit(PUSH, value);
-        //Если встретили число, то преобразуем его в целое и записываем на вершину стека
     }
     else if(see(T_IDENTIFIER)) {
         int varAddress = findOrAddVariable(scanner_->getStringValue());
         next();
         codegen_->emit(LOAD, varAddress);
-        //Если встретили переменную, то выгружаем значение, лежащее по ее адресу, на вершину стека
+
     }
     else if(see(T_ADDOP) && scanner_->getArithmeticValue() == A_MINUS) {
         next();
         factor();
         codegen_->emit(INVERT);
-        //Если встретили знак "-", и за ним <factor> то инвертируем значение, лежащее на вершине стека
     }
     else if(match(T_LPAREN)) {
         expression();
         mustBe(T_RPAREN);
-        //Если встретили открывающую скобку, тогда следом может идти любое арифметическое выражение и обязательно
-        //закрывающая скобка.
     }
     else if(match(T_READ)) {
         codegen_->emit(INPUT);
-        //Если встретили зарезервированное слово READ, то записываем на вершину стека идет запись со стандартного ввода
     }
     else {
         reportError("expression expected.");
@@ -364,22 +377,15 @@ void Parser::factor()
 
 void Parser::relation()
 {
-
-
-    // Check for boolean literals first
     if (match(T_TRUE)) {
-        codegen_->emit(PUSH_TRUE);  // Push 1 onto stack
+        codegen_->emit(PUSH_TRUE);
         return;
     }
     else if (match(T_FALSE)) {
-        codegen_->emit(PUSH_FALSE);  // Push 0 onto stack
+        codegen_->emit(PUSH_FALSE);
         return;
     }
-
-    // If not a boolean literal, try to parse as expression
     expression();
-
-    // If there's a comparison operator, compare two expressions
     if(see(T_CMP)) {
         Cmp cmp = scanner_->getCmpValue();
         next();
